@@ -1,6 +1,6 @@
 # R2RWatchArduino
 
-An advanced ESP32 and M5Unified firmware that turns a wearable/round AMOLED display into an intelligent **Reel-to-Reel (R2R) Tape Deck Telemetry Monitor, Tachometer, and Smart Watch**.
+An advanced ESP32 and M5Unified firmware that turns a wearable/round AMOLED display into an intelligent **Reel-to-Reel (R2R) Tape Deck Telemetry Monitor, Tachometer**.
 
 Equipped with 6-axis inertial motion tracking (IMU) and hardware acoustic sampling, R2RWatch mounts to or monitors reel-to-reel audio tape decks in real time—tracking spooling speeds, tape pack fullness, wow & flutter, elapsed tape distance, and acoustic sound levels, while serving a responsive web dashboard and CassetteFlow audio streaming interface over Wi-Fi.
 
@@ -145,6 +145,12 @@ R2RWatchArduino/
 | `/test` | `GET/POST` | Test and simulation override (`?ips=3.75&rpm=25&mode=play`) |
 | `/info` | `GET` | Compatibility handshake returning latest decoded state |
 | `/play` / `/stop` | `GET` | CassetteFlow transport control overrides |
+
+---
+
+## Disclaimer & AI Development
+
+This codebase was developed with the assistance of Google's **Gemini Flash** AI model. While designed and tested for performance, accuracy, and reliability, it is provided "as is" under the MIT license. Users are encouraged to review the code and test configurations on their specific hardware setups.
 
 ---
 
