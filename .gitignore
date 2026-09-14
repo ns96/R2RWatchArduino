@@ -1,0 +1,11 @@
+# Private Wi-Fi Credentials
+wifi_config.h
+
+# Arduino & Build Artifacts
+build/
+.vscode/
+*.o
+*.a
+*.bin
+*.elf
+*.hex

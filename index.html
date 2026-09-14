@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>R2R Watch Telemetry Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0d0f;
+            --card-bg: #151518;
+            --card-border: #242429;
+            --text-primary: #ffffff;
+            --text-secondary: #8a8a93;
+            --accent-amber: #ffb000;
+            --accent-orange: #ff9500;
+            --accent-gold: #e5c158;
+            --accent-red: #ff3b30;
+            --accent-green: #34c759;
+            --accent-blue: #0088ff;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Outfit', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            padding-bottom: 80px;
+        }
+
+        /* Top Header */
+        header {
+            width: 100%;
+            max-width: 540px;
+            padding: 16px 20px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            background: rgba(13, 13, 15, 0.95);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .brand-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            color: var(--text-primary);
+        }
+
+        .brand-subtitle {
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #1c1c22;
+            border: 1px solid #2e2e38;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        /* Screen Container */
+        main {
+            width: 100%;
+            max-width: 540px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Navigation Tabs */
+        .tab-bar {
+            display: flex;
+            overflow-x: auto;
+            gap: 6px;
+            padding: 4px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            scrollbar-width: none;
+        }
+
+        .tab-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-btn {
+            flex: 1;
+            min-width: 72px;
+            padding: 8px 10px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            background: #27272f;
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Mirror Watch Display Card */
+        .watch-mirror-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            min-height: 380px;
+            justify-content: space-between;
+        }
+
+        .mirror-header {
+            width: 100%;
+            text-align: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #222228;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+
+        .view-panel {
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 0;
+        }
+
+        .view-panel.active {
+            display: flex;
+        }
+
+        /* Screen 1: Tachometer */
+        .gauge-container {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gauge-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .gauge-track {
+            fill: none;
+            stroke: #222228;
+            stroke-width: 10;
+            stroke-dasharray: 540;
+            stroke-dashoffset: 135;
+        }
+
+        .gauge-bar {
+            fill: none;
+            stroke: var(--text-primary);
+            stroke-width: 10;
+            stroke-dasharray: 540;
+            stroke-dashoffset: 540;
+            transition: stroke-dashoffset 0.15s linear;
+        }
+
+        .gauge-center-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 2;
+        }
+
+        .big-number {
+            font-family: var(--font-mono);
+            font-size: 3.2rem;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--text-primary);
+        }
+
+        .unit-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .direction-badge {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 8px;
+            background: #1e1e24;
+            border: 1px solid #2e2e38;
+        }
+
+        .badge-cw { color: var(--accent-green); }
+        .badge-ccw { color: var(--accent-blue); }
+        .badge-stopped { color: var(--text-secondary); }
+
+        .linear-speed-text {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Screen 2: Waveform Oscilloscope */
+        .oscilloscope-box {
+            width: 100%;
+            height: 140px;
+            background: #08080a;
+            border: 1px solid #222228;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        .scope-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .scope-grid {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: #1f1f26;
+        }
+
+        .db-readout-row {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            padding: 0 10px;
+        }
+
+        .db-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .db-value {
+            font-family: var(--font-mono);
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .db-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .stat-card {
+            background: #111114;
+            border: 1px solid #1f1f24;
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 4px;
+        }
+
+        /* Hub & Controls Bar */
+        .control-panel {
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel-title {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 12px;
+            background: #1c1c22;
+            border: 1px solid #2e2e38;
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-action:active {
+            background: #2a2a34;
+            transform: scale(0.98);
+        }
+
+        .btn-danger {
+            border-color: rgba(255, 59, 48, 0.4);
+            color: var(--accent-red);
+        }
+
+        /* Hub Selector Segmented Button */
+        .hub-segmented {
+            display: flex;
+            background: #111114;
+            border: 1px solid #222228;
+            border-radius: 10px;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .hub-option {
+            flex: 1;
+            padding: 8px 4px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+        }
+
+        .hub-option.active {
+            background: #24242c;
+            color: var(--text-primary);
+        }
+
+        /* Navigation Dots at Card Bottom */
+        .mirror-footer-dots {
+            display: flex;
+            gap: 8px;
+            padding-top: 12px;
+        }
+
+        .mirror-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #2c2c36;
+            transition: all 0.2s ease;
+        }
+
+        .mirror-dot.active {
+            background: var(--text-primary);
+            transform: scale(1.3);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top App Header -->
+    <header>
+        <div class="brand-container">
+            <span class="brand-title">R2R WATCH</span>
+            <span class="brand-subtitle" id="connectionModeLabel">DIRECT TELEMETRY</span>
+        </div>
+        <div class="status-badge-container">
+            <div class="status-badge">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">CONNECTING</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main>
+        <!-- View Navigation Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchView(0)">TACH</button>
+            <button class="tab-btn" onclick="switchView(1)">WAVE</button>
+            <button class="tab-btn" onclick="switchView(2)">FLUTTER</button>
+            <button class="tab-btn" onclick="switchView(3)">COUNT</button>
+            <button class="tab-btn" onclick="switchView(4)">SYS</button>
+            <button class="tab-btn" onclick="switchView(5)">WIND</button>
+        </div>
+
+        <!-- Central Watch Face Mirror Screen -->
+        <div class="watch-mirror-card">
+            <div class="mirror-header" id="panelHeaderTitle">TACHOMETER</div>
+
+            <!-- Panel 0: Tachometer -->
+            <div class="view-panel active" id="panel0">
+                <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 200 200">
+                        <circle class="gauge-track" cx="100" cy="100" r="86" />
+                        <circle class="gauge-bar" id="gaugeProgress" cx="100" cy="100" r="86" />
+                    </svg>
+                    <div class="gauge-center-content">
+                        <span class="big-number" id="tachoRpm">0.0</span>
+                        <span class="unit-label">RPM</span>
+                    </div>
+                </div>
+                <div class="direction-badge badge-stopped" id="tachoDirBadge">STOPPED</div>
+                <div class="linear-speed-text" id="tachoIps">0.0 IPS</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">Min Speed</span>
+                        <span class="stat-value" id="tachoMinRpm">0.0 RPM</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Max Speed</span>
+                        <span class="stat-value" id="tachoMaxRpm">0.0 RPM</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 1: Microphone Waveform Oscilloscope -->
+            <div class="view-panel" id="panel1">
+                <div class="db-readout-row">
+                    <div class="db-stat">
+                        <span class="db-value" id="waveRmsDb">-20.0 dB</span>
+                        <span class="db-label">RMS ACOUSTIC LEVEL</span>
+                    </div>
+                    <div class="db-stat">
+                        <span class="db-value" id="wavePeakDb">-20.0 dB</span>
+                        <span class="db-label">PEAK LEVEL</span>
+                    </div>
+                </div>
+                <div class="oscilloscope-box">
+                    <div class="scope-grid"></div>
+                    <canvas id="scopeCanvas" class="scope-canvas" width="480" height="140"></canvas>
+                </div>
+                <div style="width: 100%; display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">RAW MIC SIGNAL DIVISOR (BTN B)</span>
+                    <div class="hub-segmented">
+                        <button class="hub-option active" id="micDivBtn0" onclick="setMicDivisor(1.0)">1.0x (FULL)</button>
+                        <button class="hub-option" id="micDivBtn1" onclick="setMicDivisor(0.5)">0.5x (1/2)</button>
+                        <button class="hub-option" id="micDivBtn2" onclick="setMicDivisor(0.25)">0.25x (1/4)</button>
+                        <button class="hub-option" id="micDivBtn3" onclick="setMicDivisor(0.1)">0.10x (1/10)</button>
+                        <button class="hub-option" id="micDivBtn4" onclick="setMicDivisor(0.01)">0.01x (1/100)</button>
+                    </div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">Audio Sensor</span>
+                        <span class="stat-value" id="waveSensorStatus">MIC ACTIVE</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Est. Frequency</span>
+                        <span class="stat-value" id="waveEstFreq">120 Hz</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 2: Wow & Flutter Analyzer -->
+            <div class="view-panel" id="panel2">
+                <div class="gauge-center-content" style="margin-top: 10px;">
+                    <span class="big-number" id="flutterValue">0.00 %</span>
+                    <span class="unit-label">RMS FLUTTER</span>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">Peak-To-Peak</span>
+                        <span class="stat-value" id="flutterP2P">0.00 RPM</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Speed Drift</span>
+                        <span class="stat-value" id="flutterDrift">+0.00 RPM</span>
+                    </div>
+                </div>
+                <div class="stat-card" style="width: 100%;">
+                    <span class="stat-label">Average Reel Velocity</span>
+                    <span class="stat-value" id="flutterAvgRpm">0.0 RPM</span>
+                </div>
+            </div>
+
+            <!-- Panel 3: Tape Counter -->
+            <div class="view-panel" id="panel3">
+                <div class="gauge-center-content" style="margin-top: 10px;">
+                    <span class="big-number" id="countTurns">0.0</span>
+                    <span class="unit-label">TOTAL REVOLUTIONS</span>
+                </div>
+                <div class="linear-speed-text" id="countFeet">0.0 FT</div>
+                <div class="unit-label" id="countMeters">( 0.0 METERS )</div>
+                <div class="stat-card" style="width: 100%;">
+                    <span class="stat-label">Spool Hub Profile</span>
+                    <span class="stat-value" id="countHubName">7" CINE SPOOL</span>
+                </div>
+            </div>
+
+            <!-- Panel 4: System Telemetry -->
+            <div class="view-panel" id="panel4">
+                <div class="gauge-center-content" style="margin-top: 10px;">
+                    <span class="big-number" id="sysClockTime">00:00:00</span>
+                    <span class="unit-label">REAL TIME CLOCK</span>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">Battery</span>
+                        <span class="stat-value" id="sysBattery">100%</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Watch FPS</span>
+                        <span class="stat-value" id="sysFps">45 FPS</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">CPU Load</span>
+                        <span class="stat-value" id="sysCpu">15%</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Wi-Fi RSSI</span>
+                        <span class="stat-value" id="sysRssi">-52 dBm</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 5: High Speed Wind -->
+            <div class="view-panel" id="panel5">
+                <div class="direction-badge" style="color: var(--accent-amber);" id="windStatusLabel">>> FAST FORWARD >></div>
+                <div class="gauge-center-content" style="margin: 14px 0;">
+                    <span class="big-number" id="windRpm">0 RPM</span>
+                    <span class="unit-label">HIGH VELOCITY WINDING</span>
+                </div>
+                <div class="stat-card" style="width: 100%;">
+                    <span class="stat-label">Safety Sensor Threshold</span>
+                    <span class="stat-value">AUTO CUTOFF ACTIVE (>150 RPM)</span>
+                </div>
+            </div>
+
+            <!-- Footer Pagination Dots -->
+            <div class="mirror-footer-dots">
+                <div class="mirror-dot active" id="dot0"></div>
+                <div class="mirror-dot" id="dot1"></div>
+                <div class="mirror-dot" id="dot2"></div>
+                <div class="mirror-dot" id="dot3"></div>
+                <div class="mirror-dot" id="dot4"></div>
+                <div class="mirror-dot" id="dot5"></div>
+            </div>
+        </div>
+
+        <!-- Simulated DCT FSK Stream Card -->
+        <div class="control-panel" style="margin-top: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="panel-title">SIMULATED DCT FSK STREAM (<a href="/raw" target="_blank" style="color: var(--accent-blue); text-decoration: none;">/raw</a>)</span>
+                <span class="status-badge" id="fskCadenceBadge" style="font-size: 0.7rem; padding: 2px 8px;">2 REC/S (3.75 IPS)</span>
+            </div>
+            
+            <div style="background: #08080a; border: 1px solid #222228; border-radius: 8px; padding: 12px; font-family: var(--font-mono); font-size: 0.95rem; color: #34c759; word-break: break-all; min-height: 42px; display: flex; align-items: center;" id="fskLiveRecord">
+                ### NOCARRIER ###
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
+                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-secondary);">
+                    TAPE TIMECODE: <span id="fskTapeTime" style="color: var(--text-primary); font-weight: 700;">00:00</span>
+                    (<span id="fskTapeSide" style="color: var(--accent-amber); font-weight: 700;">SIDE A</span>)
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <a href="/stream" target="_blank" class="btn-action" style="flex: 0 0 auto; padding: 6px 12px; font-size: 0.75rem; text-decoration: none; color: var(--accent-blue); border-color: rgba(10, 132, 255, 0.4);">
+                        LIVE STREAMER
+                    </a>
+                    <button class="btn-action" style="flex: 0 0 auto; padding: 6px 12px; font-size: 0.75rem;" onclick="resetTapeTime()">
+                        RESET TIME
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulation & Test Control Panel (/test) -->
+        <div class="control-panel" style="margin-top: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="panel-title">SIMULATION & TEST INTERFACE (<a href="/test?ips=3.75&rpm=25&mode=ccw" target="_blank" style="color: var(--accent-blue); text-decoration: none;">/test</a>)</span>
+                <span class="status-badge" id="testActiveBadge" style="font-size: 0.7rem; padding: 2px 8px; color: var(--accent-amber);">LIVE IMU</span>
+            </div>
+
+            <!-- Tape Speed (IPS) Selector -->
+            <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">TAPE SPEED (IPS & CADENCE)</span>
+            <div class="hub-segmented">
+                <button class="hub-option active" id="spdBtn0" onclick="setTapeSpeed(0)">3.75 IPS (2/s)</button>
+                <button class="hub-option" id="spdBtn1" onclick="setTapeSpeed(1)">7.50 IPS (4/s)</button>
+                <button class="hub-option" id="spdBtn2" onclick="setTapeSpeed(2)">15.0 IPS (8/s)</button>
+            </div>
+
+            <!-- Test Mode Buttons -->
+            <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">TEST MODES</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                <button class="btn-action" id="testBtnStop" onclick="sendTestMode('stop')">
+                    STOP
+                </button>
+                <button class="btn-action" id="testBtnPlayCCW" onclick="sendTestMode('ccw')">
+                    PLAY CCW (A)
+                </button>
+                <button class="btn-action" id="testBtnPlayCW" onclick="sendTestMode('cw')">
+                    PLAY CW (B)
+                </button>
+                <button class="btn-action" id="testBtnFFW" onclick="sendTestMode('ffw')">
+                    FAST FWD
+                </button>
+                <button class="btn-action" id="testBtnFREV" onclick="sendTestMode('frev')">
+                    FAST REV
+                </button>
+                <button class="btn-action" id="testBtnLive" style="border-color: rgba(52, 199, 89, 0.4); color: var(--accent-green);" onclick="sendTestMode('live')">
+                    LIVE SENSORS
+                </button>
+            </div>
+
+            <!-- RPM Slider for Testing -->
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
+                <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary);">
+                    <span>SIMULATED REEL RPM</span>
+                    <span id="sliderRpmValue" style="color: var(--text-primary); font-weight: 700;">25 RPM</span>
+                </div>
+                <input type="range" id="testRpmSlider" min="0" max="180" step="5" value="25" style="width: 100%; accent-color: var(--accent-blue);" oninput="onRpmSliderInput(this.value)" onchange="onRpmSliderChange(this.value)">
+            </div>
+        </div>
+    </main>
+
+    <!-- Telemetry Client Logic & Local Simulation Engine -->
+    <script>
+        let currentMode = 0;
+        let currentHub = 0;
+        let currentSpeed = 0;
+        let isSimulation = false;
+        const titles = ["TACHOMETER", "MIC WAVEFORM", "WOW & FLUTTER", "TAPE COUNTER", "SYSTEM INFO", "HIGH SPEED WIND"];
+
+        // Waveform canvas
+        const canvas = document.getElementById("scopeCanvas");
+        const ctx = canvas.getContext("2d");
+
+        function switchView(index) {
+            currentMode = index;
+            document.querySelectorAll(".tab-btn").forEach((btn, i) => {
+                btn.classList.toggle("active", i === index);
+            });
+            document.querySelectorAll(".view-panel").forEach((p, i) => {
+                p.classList.toggle("active", i === index);
+            });
+            document.querySelectorAll(".mirror-dot").forEach((d, i) => {
+                d.classList.toggle("active", i === index);
+            });
+            document.getElementById("panelHeaderTitle").textContent = titles[index];
+        }
+
+        function setHubType(type) {
+            currentHub = type;
+            document.querySelectorAll(".hub-option").forEach((btn, i) => {
+                if (i <= 2) btn.classList.toggle("active", i === type);
+            });
+            if (!isSimulation) {
+                fetch("/api/action?hub=" + type, { method: "POST" }).catch(() => {});
+            }
+        }
+
+        function setTapeSpeed(speed) {
+            currentSpeed = speed;
+            document.getElementById("spdBtn0").classList.toggle("active", speed === 0);
+            document.getElementById("spdBtn1").classList.toggle("active", speed === 1);
+            document.getElementById("spdBtn2").classList.toggle("active", speed === 2);
+            if (!isSimulation) {
+                fetch("/api/action?tape_speed=" + speed, { method: "POST" }).catch(() => {});
+            }
+        }
+
+        function setMicDivisor(div) {
+            document.getElementById("micDivBtn0").classList.toggle("active", Math.abs(div - 1.0) < 0.05);
+            document.getElementById("micDivBtn1").classList.toggle("active", Math.abs(div - 0.5) < 0.05);
+            document.getElementById("micDivBtn2").classList.toggle("active", Math.abs(div - 0.25) < 0.05);
+            document.getElementById("micDivBtn3").classList.toggle("active", Math.abs(div - 0.1) < 0.03);
+            document.getElementById("micDivBtn4").classList.toggle("active", Math.abs(div - 0.01) < 0.005);
+            if (!isSimulation) {
+                fetch("/api/action?mic_div=" + div, { method: "POST" }).catch(() => {});
+            }
+        }
+
+        function remoteCycleMode() {
+            const next = (currentMode + 1) % 6;
+            switchView(next);
+            if (!isSimulation) {
+                fetch("/api/action?next_mode=1", { method: "POST" }).catch(() => {});
+            }
+        }
+
+        function remoteResetCounter() {
+            if (!isSimulation) {
+                fetch("/api/action?reset_counter=1", { method: "POST" }).catch(() => {});
+            } else {
+                simStats.turns = 0.0;
+                simStats.feet = 0.0;
+            }
+        }
+
+        function resetTapeTime() {
+            if (!isSimulation) {
+                fetch("/api/action?reset_tape_time=1", { method: "POST" }).catch(() => {});
+            } else {
+                simStats.tapeSeconds = 0;
+            }
+        }
+
+        function sendTestMode(mode) {
+            const rpm = document.getElementById("testRpmSlider").value;
+            const ips = (currentSpeed === 2) ? 15.0 : ((currentSpeed === 1) ? 7.5 : 3.75);
+            fetch(`/test?ips=${ips}&rpm=${rpm}&mode=${mode}`).catch(() => {});
+        }
+
+        function onRpmSliderInput(val) {
+            document.getElementById("sliderRpmValue").textContent = val + " RPM";
+        }
+
+        function onRpmSliderChange(val) {
+            fetch(`/test?rpm=${val}`).catch(() => {});
+        }
+
+        // Draw Waveform onto Canvas
+        function drawWaveform(samples) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+
+            const step = canvas.width / (samples.length - 1);
+            const midY = canvas.height / 2;
+
+            for (let i = 0; i < samples.length; i++) {
+                const x = i * step;
+                const y = midY - (samples[i] * 50);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // Local Simulation Physics Generator
+        const simStats = {
+            rpm: 25.0,
+            ips: 3.75,
+            dir: "CCW",
+            minRpm: 24.2,
+            maxRpm: 25.8,
+            flutter: 0.06,
+            p2p: 0.85,
+            drift: 0.12,
+            turns: 14.5,
+            feet: 28.4,
+            db: -12.4,
+            peakDb: -8.5,
+            bat: 92,
+            fps: 45,
+            cpu: 18,
+            rssi: -54,
+            tapeSeconds: 15,
+            tapeTime: "00:15",
+            playState: "PLAY A",
+            tapeSide: "A",
+            lineRecord: "DCT0A_01_aaaaaaaaaa_0015_0015",
+            recordRateHz: 2.0
+        };
+
+        let simPhase = 0;
+
+        function runSimulation() {
+            simPhase += 0.1;
+            const jitter = Math.sin(simPhase * 1.5) * 0.4;
+            simStats.rpm = 25.0 + jitter;
+            simStats.ips = 3.75;
+            simStats.turns += 0.02;
+            simStats.feet = simStats.turns * 1.93;
+            simStats.flutter = 0.05 + (Math.abs(jitter) * 0.02);
+            simStats.p2p = 0.8 + Math.abs(jitter * 0.4);
+            simStats.drift = jitter * 0.2;
+            simStats.tapeSeconds += 0.05;
+            const secInt = Math.floor(simStats.tapeSeconds);
+            const min = Math.floor(secInt / 60);
+            const sec = secInt % 60;
+            simStats.tapeTime = String(min).padStart(2, '0') + ":" + String(sec).padStart(2, '0');
+            const secPad = String(secInt).padStart(4, '0');
+            simStats.lineRecord = `DCT0A_01_aaaaaaaaaa_${secPad}_${secPad}`;
+
+            // Generate synthetic microphone waveform samples
+            const samples = [];
+            for (let i = 0; i < 64; i++) {
+                samples.push(Math.sin(simPhase + (i * 0.2)) * 0.6 + (Math.random() - 0.5) * 0.1);
+            }
+
+            updateUI({
+                rpm: simStats.rpm,
+                ips: simStats.ips,
+                dir: "CCW",
+                minRpm: simStats.minRpm,
+                maxRpm: simStats.maxRpm,
+                flutter: simStats.flutter,
+                p2p: simStats.p2p,
+                drift: simStats.drift,
+                avgRpm: 25.0,
+                turns: simStats.turns,
+                feet: simStats.feet,
+                db: -14.0 + Math.sin(simPhase) * 4.0,
+                peakDb: -8.2,
+                bat: simStats.bat,
+                fps: simStats.fps,
+                cpu: simStats.cpu,
+                rssi: simStats.rssi,
+                mode: currentMode,
+                hub: currentHub,
+                tapeSpeed: currentSpeed,
+                tapeSeconds: simStats.tapeSeconds,
+                tapeTime: simStats.tapeTime,
+                playState: simStats.playState,
+                tapeSide: simStats.tapeSide,
+                testModeActive: false,
+                testModeName: "DISABLED",
+                lineRecord: simStats.lineRecord,
+                recordRateHz: 2.0,
+                mic: samples
+            });
+        }
+
+        // Update all UI elements from telemetry payload
+        function updateUI(data) {
+            // Screen 1: Tachometer
+            document.getElementById("tachoRpm").textContent = data.rpm.toFixed(1);
+            document.getElementById("tachoIps").textContent = data.ips.toFixed(1) + " IPS";
+            document.getElementById("tachoMinRpm").textContent = data.minRpm.toFixed(1) + " RPM";
+            document.getElementById("tachoMaxRpm").textContent = data.maxRpm.toFixed(1) + " RPM";
+
+            const badge = document.getElementById("tachoDirBadge");
+            if (data.rpm < 1.0) {
+                badge.textContent = "STOPPED";
+                badge.className = "direction-badge badge-stopped";
+            } else if (data.dir === "CW" || data.dir === ">> CW >>" || data.dir === ">> CW (SIDE B) >>") {
+                badge.textContent = ">> CLOCKWISE (SIDE B) >>";
+                badge.className = "direction-badge badge-cw";
+            } else {
+                badge.textContent = "<< COUNTER-CW (SIDE A) <<";
+                badge.className = "direction-badge badge-ccw";
+            }
+
+            // Radial gauge progress (540 total circumference, 270 deg active arc)
+            const ratio = Math.min(Math.max(data.rpm / 300.0, 0), 1.0);
+            const offset = 540 - (ratio * (540 * 0.75));
+            document.getElementById("gaugeProgress").style.strokeDashoffset = offset;
+
+            // Screen 2: Waveform
+            document.getElementById("waveRmsDb").textContent = (data.db >= 0 ? "+" : "") + data.db.toFixed(1) + " dB";
+            document.getElementById("wavePeakDb").textContent = (data.peakDb >= 0 ? "+" : "") + data.peakDb.toFixed(1) + " dB";
+            if (data.mic && data.mic.length > 0) {
+                drawWaveform(data.mic);
+            }
+
+            // Screen 3: Wow & Flutter
+            document.getElementById("flutterValue").textContent = data.flutter.toFixed(2) + " %";
+            document.getElementById("flutterP2P").textContent = data.p2p.toFixed(2) + " RPM";
+            document.getElementById("flutterDrift").textContent = (data.drift >= 0 ? "+" : "") + data.drift.toFixed(2) + " RPM";
+            if (data.avgRpm) document.getElementById("flutterAvgRpm").textContent = data.avgRpm.toFixed(1) + " RPM";
+
+            // Screen 4: Tape Counter
+            document.getElementById("countTurns").textContent = data.turns.toFixed(1);
+            document.getElementById("countFeet").textContent = data.feet.toFixed(1) + " FT";
+            document.getElementById("countMeters").textContent = "( " + (data.feet * 0.3048).toFixed(1) + " METERS )";
+
+            // Screen 5: System Telemetry
+            if (data.time) {
+                document.getElementById("sysClockTime").textContent = data.time;
+            } else {
+                const now = new Date();
+                const timeStr = String(now.getHours()).padStart(2, '0') + ":" +
+                                String(now.getMinutes()).padStart(2, '0') + ":" +
+                                String(now.getSeconds()).padStart(2, '0');
+                document.getElementById("sysClockTime").textContent = timeStr;
+            }
+            document.getElementById("sysBattery").textContent = data.bat + "%";
+            document.getElementById("sysFps").textContent = data.fps + " FPS";
+            document.getElementById("sysCpu").textContent = data.cpu + "%";
+            if (data.rssi) document.getElementById("sysRssi").textContent = data.rssi + " dBm";
+
+            // Screen 6: Wind
+            document.getElementById("windRpm").textContent = data.rpm.toFixed(0) + " RPM";
+
+            // FSK Stream & Test Panel UI Updates
+            if (data.lineRecord) {
+                const recElem = document.getElementById("fskLiveRecord");
+                recElem.textContent = data.lineRecord;
+                if (data.lineRecord.includes("NOCARRIER")) {
+                    recElem.style.color = "#ff9500";
+                } else {
+                    recElem.style.color = "#34c759";
+                }
+            }
+
+            if (data.tapeTime) {
+                document.getElementById("fskTapeTime").textContent = data.tapeTime;
+            }
+            if (data.tapeSide) {
+                document.getElementById("fskTapeSide").textContent = "SIDE " + data.tapeSide;
+            }
+            if (data.recordRateHz) {
+                const ipsText = (data.tapeSpeed === 2) ? "15.0 IPS" : ((data.tapeSpeed === 1) ? "7.50 IPS" : "3.75 IPS");
+                document.getElementById("fskCadenceBadge").textContent = `${data.recordRateHz.toFixed(0)} REC/S (${ipsText})`;
+            }
+
+            const testBadge = document.getElementById("testActiveBadge");
+            if (data.testModeActive) {
+                testBadge.textContent = "TEST: " + (data.testModeName || "ACTIVE");
+                testBadge.style.color = "var(--accent-amber)";
+                testBadge.style.borderColor = "var(--accent-amber)";
+            } else {
+                testBadge.textContent = "LIVE IMU";
+                testBadge.style.color = "var(--accent-green)";
+                testBadge.style.borderColor = "rgba(52, 199, 89, 0.4)";
+            }
+
+            // Sync speed button highlight
+            if (data.tapeSpeed !== undefined) {
+                currentSpeed = data.tapeSpeed;
+                document.getElementById("spdBtn0").classList.toggle("active", currentSpeed === 0);
+                document.getElementById("spdBtn1").classList.toggle("active", currentSpeed === 1);
+                document.getElementById("spdBtn2").classList.toggle("active", currentSpeed === 2);
+            }
+
+            // Sync mic divisor button highlight
+            if (data.micDivisor !== undefined) {
+                document.getElementById("micDivBtn0").classList.toggle("active", Math.abs(data.micDivisor - 1.0) < 0.05);
+                document.getElementById("micDivBtn1").classList.toggle("active", Math.abs(data.micDivisor - 0.5) < 0.05);
+                document.getElementById("micDivBtn2").classList.toggle("active", Math.abs(data.micDivisor - 0.25) < 0.05);
+                document.getElementById("micDivBtn3").classList.toggle("active", Math.abs(data.micDivisor - 0.1) < 0.03);
+                document.getElementById("micDivBtn4").classList.toggle("active", Math.abs(data.micDivisor - 0.01) < 0.005);
+            }
+        }
+
+        let hasAttemptedBrowserTimeSync = false;
+        async function syncBrowserTimeWithDevice() {
+            if (hasAttemptedBrowserTimeSync) return;
+            hasAttemptedBrowserTimeSync = true;
+            try {
+                const now = new Date();
+                const params = new URLSearchParams({
+                    epoch: Math.floor(now.getTime() / 1000).toString(),
+                    hours: now.getHours().toString(),
+                    minutes: now.getMinutes().toString(),
+                    seconds: now.getSeconds().toString(),
+                    year: now.getFullYear().toString(),
+                    month: (now.getMonth() + 1).toString(),
+                    day: now.getDate().toString()
+                });
+                await fetch("/api/set_time", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: params
+                });
+            } catch (e) {
+                hasAttemptedBrowserTimeSync = false;
+            }
+        }
+
+        // Network Polling vs Local Simulation Engine
+        async function pollDeviceTelemetry() {
+            try {
+                const res = await fetch("/api/telemetry", { cache: "no-store" });
+                if (!res.ok) throw new Error("Offline");
+                const data = await res.json();
+                isSimulation = false;
+                document.getElementById("statusDot").style.background = "#34c759";
+                document.getElementById("statusDot").style.boxShadow = "0 0 8px #34c759";
+                document.getElementById("statusText").textContent = "CONNECTED";
+                document.getElementById("connectionModeLabel").textContent = "LIVE HARDWARE";
+
+                if (data.timeSynced === false && !hasAttemptedBrowserTimeSync) {
+                    syncBrowserTimeWithDevice();
+                }
+
+                updateUI(data);
+            } catch (err) {
+                // If device cannot be reached (testing locally via file://), fallback to simulation
+                isSimulation = true;
+                document.getElementById("statusDot").style.background = "#ffb000";
+                document.getElementById("statusDot").style.boxShadow = "0 0 8px #ffb000";
+                document.getElementById("statusText").textContent = "SIMULATION";
+                document.getElementById("connectionModeLabel").textContent = "LOCAL PREVIEW";
+                runSimulation();
+            }
+        }
+
+        // Poll at 20 Hz (50ms interval)
+        setInterval(pollDeviceTelemetry, 50);
+    </script>
+</body>
+</html>
