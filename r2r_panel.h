@@ -51,7 +51,15 @@ public:
     int     bandCount(void)  const { return _band_count; }
     int64_t composeUs(void)  const { return _compose_us; }
     int64_t transferUs(void) const { return _transfer_us; }
+    int64_t setupUs(void)    const { return _setup_us; }
+    int64_t clearUs(void)    const { return _clear_us; }
+    int64_t affineUs(void)   const { return _affine_us; }
     size_t  bytesSent(void)  const { return _bytes_sent; }
+
+    // True once the hand-rolled compositor has been proved equal to the library's
+    // on real canvas content. Until then, and if it ever disagreed, the library
+    // path is used instead.
+    bool ownAffine(void)     const { return _affine_ok; }
 
 private:
     lgfx::Panel_AMOLED* _panel = nullptr;
@@ -65,9 +73,25 @@ private:
     int     _band_count  = 0;
     int64_t _compose_us  = 0;
     int64_t _transfer_us = 0;
+    int64_t _setup_us    = 0;
+    int64_t _clear_us    = 0;
+    int64_t _affine_us   = 0;
     size_t  _bytes_sent  = 0;
 
+    bool _affine_ok     = false;
+    bool _self_test_done = false;
+
     bool borrowPanel(void);
+
+    // Composes one band with a hand written affine blit. Produces exactly the pixels
+    // LGFXBase::push_image_affine() produces for the same destination, but without
+    // its generic per-pixel conversion call and transparency test.
+    void composeBand(LGFX_Sprite& canvas, int x0, int y, int w, int h,
+                     float angleDeg, float zoom, uint8_t* buffer);
+
+    // Compares composeBand() against the library on the real canvas, over a spread of
+    // angles and band positions, and enables the fast path only on an exact match.
+    void runSelfTest(LGFX_Sprite& canvas, float zoom);
 };
 
 } // namespace r2r

@@ -266,9 +266,11 @@ void R2RRenderer::render(LGFX_Device* display)
     if (millis() - last_prof > 1000) {
         last_prof = millis();
         if (_band_panel.ready()) {
-            Serial.printf("[RENDER_PROFILE] Clear: %lld us | Draw: %lld us | Push: %lld us (direct %d bands, compose %lld, xfer %lld, %u KB) | Total: %lld us | Instant FPS: %.1f\n",
+            Serial.printf("[RENDER_PROFILE] Clear: %lld us | Draw: %lld us | Push: %lld us (direct %d bands, setup %lld, fill %lld, affine%s %lld, xfer %lld, %u KB) | Total: %lld us | Instant FPS: %.1f\n",
                           (t1 - t0), (t2 - t1), (t3 - t2),
-                          _band_panel.bandCount(), _band_panel.composeUs(), _band_panel.transferUs(),
+                          _band_panel.bandCount(), _band_panel.setupUs(), _band_panel.clearUs(),
+                          _band_panel.ownAffine() ? "" : "(lib)",
+                          _band_panel.affineUs(), _band_panel.transferUs(),
                           static_cast<unsigned>(_band_panel.bytesSent() >> 10),
                           (t3 - t0), _current_fps);
         } else {
