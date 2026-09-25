@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <M5GFX.h>
 #include "r2r_calculator.h"
+#include "r2r_panel.h"
 #include <memory>
 #include <vector>
 #include <cmath>
@@ -124,6 +125,11 @@ public:
 private:
     LGFX_Device* _display = nullptr;
     LGFX_Sprite  _canvas;     // 280x280 16-bit canvas in Internal SRAM (zoomed 1.6643x to 466x466)
+
+    // Preferred frame sink: streams bands straight to the QSPI panel. Stays inert if
+    // it cannot borrow the panel or allocate its band buffer, in which case the
+    // M5GFX framebuffer path below is used instead.
+    BandPanel    _band_panel;
 
     R2RCalculator _calculator;
     ViewMode _current_mode = ViewMode::Tachometer;

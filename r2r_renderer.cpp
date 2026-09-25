@@ -119,6 +119,11 @@ void R2RRenderer::init(LGFX_Device* display)
     _canvas.setPivot(CANVAS_CENTER, CANVAS_CENTER);
     _canvas.setTextDatum(textdatum_t::middle_center);
 
+    // Try to take the frame path that writes to the QSPI panel directly. If it
+    // declines, render() keeps using the M5GFX framebuffer, which is slower but
+    // already proven on this board.
+    _band_panel.begin();
+
     // Initial clean zeroing of display outer border (pitch black AMOLED)
     _display->clear(COLOR_BG);
 
@@ -245,15 +250,31 @@ void R2RRenderer::render(LGFX_Device* display)
 
     // 4. Smooth Affine Rotation: Scaled 1.6643x to fill the full 466x466 AMOLED screen edge-to-edge
     float zoom = _use_native_1to1 ? 1.0f : ZOOM_SCALE;
-    pushFrameInBands(counterAngle, zoom);
+    if (_band_panel.ready()) {
+        // Straight to the QSPI panel: one window command and one DMA per band, and no
+        // PSRAM framebuffer round trip.
+        _band_panel.pushRotated(_canvas, counterAngle, zoom);
+    } else {
+        // M5GFX framebuffer path: the bands still skip the masked corners, but every
+        // pixel also goes through the PSRAM framebuffer before it reaches the panel.
+        pushFrameInBands(counterAngle, zoom);
+    }
 
     int64_t t3 = esp_timer_get_time();
 
     static uint32_t last_prof = 0;
     if (millis() - last_prof > 1000) {
         last_prof = millis();
-        Serial.printf("[RENDER_PROFILE] Clear: %lld us | Draw: %lld us | Push(DMA): %lld us | Total: %lld us | Instant FPS: %.1f\n",
-                      (t1 - t0), (t2 - t1), (t3 - t2), (t3 - t0), _current_fps);
+        if (_band_panel.ready()) {
+            Serial.printf("[RENDER_PROFILE] Clear: %lld us | Draw: %lld us | Push: %lld us (direct %d bands, compose %lld, xfer %lld, %u KB) | Total: %lld us | Instant FPS: %.1f\n",
+                          (t1 - t0), (t2 - t1), (t3 - t2),
+                          _band_panel.bandCount(), _band_panel.composeUs(), _band_panel.transferUs(),
+                          static_cast<unsigned>(_band_panel.bytesSent() >> 10),
+                          (t3 - t0), _current_fps);
+        } else {
+            Serial.printf("[RENDER_PROFILE] Clear: %lld us | Draw: %lld us | Push: %lld us (framebuffer) | Total: %lld us | Instant FPS: %.1f\n",
+                          (t1 - t0), (t2 - t1), (t3 - t2), (t3 - t0), _current_fps);
+        }
     }
 }
 
