@@ -157,6 +157,26 @@ private:
     void drawTapeCounter();
     void drawWatchFace();
     void drawFullScreenConcentricCircles(bool isFastForward, float rpm);
+
+    // =========================================================================
+    // Frame Transfer
+    // =========================================================================
+    // The visible area of the 468x468 CO5300 panel is a circle 466 px across centred at
+    // (233,233); the four corners are physically masked off by the bezel. Pushing them costs
+    // roughly 93 KB out of the 434 KB frame, over a QSPI link that is the hard floor on frame
+    // time (434 KB at 40 MB/s is 10.9 ms). Splitting the push into horizontal bands, each
+    // clipped to the chord of that circle, removes the dead traffic for the cost of ~15 extra
+    // window commands per frame.
+    static constexpr int VISIBLE_CENTER = 233;
+    static constexpr int VISIBLE_RADIUS = 233;
+
+    // Rows per band. Larger bands amortise the per-band window command; smaller bands track the
+    // curve more closely and waste fewer pixels at the top and bottom of the circle. At 32 rows
+    // the clip rectangles cover 181.5 k px against the circle's 170.6 k px, about 6% waste.
+    static constexpr int FLUSH_BAND_H   = 32;
+
+    // Push the whole canvas to the panel, band by band, clipped to the visible circle.
+    void pushFrameInBands(float angleDeg, float zoom);
 };
 
 } // namespace r2r
