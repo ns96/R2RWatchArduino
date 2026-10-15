@@ -81,11 +81,40 @@ public:
     static constexpr float MIC_DIVISORS[] = { 1.0f, 0.5f, 0.25f, 0.10f, 0.01f };
     static constexpr size_t MIC_DIVISOR_COUNT = 5;
 
+    // Fixed reference full-scale in divisor-scaled sample units. Used for the absolute
+    // dB readout and as the trace scale when auto-scaling is disabled (manual divisor).
+    static constexpr float MIC_FULL_SCALE = 2500.0f;
+
+    // Automatic vertical scaling (oscilloscope-style autoset). The trace tracks the
+    // signal envelope and maps it to a fixed fraction of full deflection, so a loud
+    // room no longer pins the waveform against the top and bottom of the scope box.
+    static constexpr float MIC_AUTO_HEADROOM  = 0.75f;   // target fraction of half-height
+    static constexpr float MIC_SCALE_MIN      = 300.0f;  // max gain ~8.3x (quiet-room floor)
+    static constexpr float MIC_SCALE_MAX      = 20000.0f;// max attenuation ~8x (loud-room ceiling)
+    static constexpr float MIC_ENV_ATTACK     = 0.40f;   // envelope rise per mic block (fast)
+    static constexpr float MIC_ENV_RELEASE    = 0.02f;   // envelope decay per mic block (slow)
+    static constexpr float MIC_SCALE_GLIDE    = 0.03f;   // vertical-scale convergence rate
+    static constexpr float MIC_SCALE_DEADBAND = 0.10f;   // ignore <10% target moves (anti-pump)
+
+    void setMicAutoScale(bool enable) {
+        if (_mic_auto_scale != enable) {
+            _mic_auto_scale = enable;
+            _mic_env = 0.0f;
+            _mic_scale = MIC_FULL_SCALE;
+        }
+    }
+    bool isMicAutoScale() const { return _mic_auto_scale; }
+    float getMicScale() const { return _mic_scale; }
+
     void nextMicDivisor() {
         _mic_divisor_idx = (_mic_divisor_idx + 1) % MIC_DIVISOR_COUNT;
+        setMicAutoScale(false); // manual selection overrides auto-scaling
     }
     void setMicDivisorIndex(size_t idx) {
-        if (idx < MIC_DIVISOR_COUNT) _mic_divisor_idx = idx;
+        if (idx < MIC_DIVISOR_COUNT) {
+            _mic_divisor_idx = idx;
+            setMicAutoScale(false); // manual selection overrides auto-scaling
+        }
     }
     size_t getMicDivisorIndex() const { return _mic_divisor_idx; }
     float getMicDivisor() const { return MIC_DIVISORS[_mic_divisor_idx]; }
@@ -149,6 +178,9 @@ private:
     float _mic_peak_db = -20.0f;
     uint32_t _peak_hold_tick = 0;
     size_t _mic_divisor_idx = 0; // 0 = 1.0 (default), 1 = 0.5, 2 = 0.25
+    bool  _mic_auto_scale = true;        // automatic vertical scaling (default on)
+    float _mic_env = 0.0f;               // smoothed signal envelope (scaled sample units)
+    float _mic_scale = MIC_FULL_SCALE;   // current units per full deflection
 
     // Single stepping ring animation tracking
     float _ring_step_interval_sec = DEFAULT_STEP_INTERVAL_S;

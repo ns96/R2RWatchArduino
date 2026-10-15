@@ -700,6 +700,8 @@ void R2RWebServer::handleTelemetry()
         "\"peakDb\":%.1f,"
         "\"micDivisor\":%.2f,"
         "\"micDivisorLabel\":\"%s\","
+        "\"micAutoScale\":%s,"
+        "\"micScale\":%.0f,"
         "\"tapeSeconds\":%.1f,"
         "\"tapeTime\":\"%s\","
         "\"playState\":\"%s\","
@@ -741,6 +743,8 @@ void R2RWebServer::handleTelemetry()
         peakDb,
         _renderer->getMicDivisor(),
         _renderer->getMicDivisorLabel(),
+        _renderer->isMicAutoScale() ? "true" : "false",
+        _renderer->getMicScale(),
         calc.getSimulatedTapeSeconds(),
         tapeTimeBuf,
         R2RCalculator::getPlayStateName(calc.getPlayState()),
@@ -810,6 +814,9 @@ void R2RWebServer::handleAction()
     }
     if (_server.hasArg("next_mic_div")) {
         _renderer->nextMicDivisor();
+    }
+    if (_server.hasArg("mic_auto")) {
+        _renderer->setMicAutoScale(_server.arg("mic_auto").toInt() != 0);
     }
     if (_server.hasArg("reset_counter")) {
         calc.resetStats();

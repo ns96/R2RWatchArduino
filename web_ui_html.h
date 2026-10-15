@@ -553,9 +553,10 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                     <canvas id="scopeCanvas" class="scope-canvas" width="480" height="140"></canvas>
                 </div>
                 <div style="width: 100%; display: flex; flex-direction: column; gap: 4px;">
-                    <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">RAW MIC SIGNAL DIVISOR (BTN B)</span>
+                    <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">MIC VERTICAL SCALE (BTN B)</span>
                     <div class="hub-segmented">
-                        <button class="hub-option active" id="micDivBtn0" onclick="setMicDivisor(1.0)">1.0x (FULL)</button>
+                        <button class="hub-option active" id="micDivBtnAuto" onclick="setMicAuto()">AUTO</button>
+                        <button class="hub-option" id="micDivBtn0" onclick="setMicDivisor(1.0)">1.0x (FULL)</button>
                         <button class="hub-option" id="micDivBtn1" onclick="setMicDivisor(0.5)">0.5x (1/2)</button>
                         <button class="hub-option" id="micDivBtn2" onclick="setMicDivisor(0.25)">0.25x (1/4)</button>
                         <button class="hub-option" id="micDivBtn3" onclick="setMicDivisor(0.1)">0.10x (1/10)</button>
@@ -748,6 +749,12 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         const canvas = document.getElementById("scopeCanvas");
         const ctx = canvas.getContext("2d");
 
+        // Mic vertical scale mirrored from the device: when auto-scaling is active the
+        // reported scale (divisor-scaled sample units per full deflection) is divided
+        // into the incoming /16384-normalized samples so the trace self-fits.
+        let micAutoScale = false;
+        let micScale = 2500.0;
+
         function switchView(index) {
             currentMode = index;
             document.querySelectorAll(".tab-btn").forEach((btn, i) => {
@@ -783,6 +790,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         }
 
         function setMicDivisor(div) {
+            document.getElementById("micDivBtnAuto").classList.remove("active");
             document.getElementById("micDivBtn0").classList.toggle("active", Math.abs(div - 1.0) < 0.05);
             document.getElementById("micDivBtn1").classList.toggle("active", Math.abs(div - 0.5) < 0.05);
             document.getElementById("micDivBtn2").classList.toggle("active", Math.abs(div - 0.25) < 0.05);
@@ -790,6 +798,16 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
             document.getElementById("micDivBtn4").classList.toggle("active", Math.abs(div - 0.01) < 0.005);
             if (!isSimulation) {
                 fetch("/api/action?mic_div=" + div, { method: "POST" }).catch(() => {});
+            }
+        }
+
+        function setMicAuto() {
+            document.getElementById("micDivBtnAuto").classList.add("active");
+            for (let i = 0; i < 5; i++) {
+                document.getElementById("micDivBtn" + i).classList.remove("active");
+            }
+            if (!isSimulation) {
+                fetch("/api/action?mic_auto=1", { method: "POST" }).catch(() => {});
             }
         }
 
@@ -841,10 +859,11 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
             const step = canvas.width / (samples.length - 1);
             const midY = canvas.height / 2;
+            const autoGain = (micAutoScale && micScale > 0) ? (16384.0 / micScale) : 1.0;
 
             for (let i = 0; i < samples.length; i++) {
                 const x = i * step;
-                const y = midY - (samples[i] * 50);
+                const y = midY - (samples[i] * autoGain * 50);
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
@@ -1038,13 +1057,21 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
                 document.getElementById("spdBtn2").classList.toggle("active", currentSpeed === 2);
             }
 
-            // Sync mic divisor button highlight
+            // Sync mic auto-scale state and divisor button highlights
+            if (data.micAutoScale !== undefined) {
+                micAutoScale = data.micAutoScale === true;
+                document.getElementById("micDivBtnAuto").classList.toggle("active", micAutoScale);
+            }
+            if (data.micScale !== undefined) {
+                micScale = data.micScale;
+            }
             if (data.micDivisor !== undefined) {
-                document.getElementById("micDivBtn0").classList.toggle("active", Math.abs(data.micDivisor - 1.0) < 0.05);
-                document.getElementById("micDivBtn1").classList.toggle("active", Math.abs(data.micDivisor - 0.5) < 0.05);
-                document.getElementById("micDivBtn2").classList.toggle("active", Math.abs(data.micDivisor - 0.25) < 0.05);
-                document.getElementById("micDivBtn3").classList.toggle("active", Math.abs(data.micDivisor - 0.1) < 0.03);
-                document.getElementById("micDivBtn4").classList.toggle("active", Math.abs(data.micDivisor - 0.01) < 0.005);
+                const divActive = !micAutoScale;
+                document.getElementById("micDivBtn0").classList.toggle("active", divActive && Math.abs(data.micDivisor - 1.0) < 0.05);
+                document.getElementById("micDivBtn1").classList.toggle("active", divActive && Math.abs(data.micDivisor - 0.5) < 0.05);
+                document.getElementById("micDivBtn2").classList.toggle("active", divActive && Math.abs(data.micDivisor - 0.25) < 0.05);
+                document.getElementById("micDivBtn3").classList.toggle("active", divActive && Math.abs(data.micDivisor - 0.1) < 0.03);
+                document.getElementById("micDivBtn4").classList.toggle("active", divActive && Math.abs(data.micDivisor - 0.01) < 0.005);
             }
         }
 

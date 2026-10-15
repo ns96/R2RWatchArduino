@@ -165,14 +165,32 @@ void R2RRenderer::update(const ImuData& imuData, float dt)
         if (!M5.Mic.isRecording()) {
             float div = getMicDivisor();
             float sum_sq = 0.0f;
+            float block_peak = 0.0f;
             for (size_t i = 0; i < MIC_POINTS; i++) {
                 float raw = static_cast<float>(_raw_dma_buf[i]);
                 float scaled = raw * div;
                 _mic_samples[i] = static_cast<int16_t>(std::clamp(scaled, -32768.0f, 32767.0f));
                 sum_sq += scaled * scaled;
+                float mag = std::fabs(scaled);
+                if (mag > block_peak) block_peak = mag;
             }
+
+            // Automatic vertical scale: track the block peak with a fast-attack /
+            // slow-release envelope, then glide the trace scale toward the value that
+            // maps that envelope to MIC_AUTO_HEADROOM of full deflection. The deadband
+            // keeps a steady tone from visibly breathing.
+            if (_mic_auto_scale) {
+                float coef = (block_peak > _mic_env) ? MIC_ENV_ATTACK : MIC_ENV_RELEASE;
+                _mic_env += coef * (block_peak - _mic_env);
+
+                float target = std::clamp(_mic_env / MIC_AUTO_HEADROOM, MIC_SCALE_MIN, MIC_SCALE_MAX);
+                if (std::fabs(target - _mic_scale) / _mic_scale > MIC_SCALE_DEADBAND) {
+                    _mic_scale += MIC_SCALE_GLIDE * (target - _mic_scale);
+                }
+            }
+
             float rms = std::sqrt(sum_sq / static_cast<float>(MIC_POINTS));
-            float norm = std::clamp(rms / 2500.0f, 0.0f, 1.0f);
+            float norm = std::clamp(rms / MIC_FULL_SCALE, 0.0f, 1.0f);
             float targetDb = -20.0f + (norm * 23.0f);
             _mic_rms_db = (0.6f * _mic_rms_db) + (0.4f * targetDb);
             if (_mic_rms_db > _mic_peak_db) {
@@ -456,12 +474,12 @@ void R2RRenderer::drawVuMeter()
     int maxAmp = (oh / 2) - 6;
 
     int prevX = startX;
-    float norm0 = std::clamp(static_cast<float>(_mic_samples[0]) / 2500.0f, -1.0f, 1.0f);
+    float norm0 = std::clamp(static_cast<float>(_mic_samples[0]) / _mic_scale, -1.0f, 1.0f);
     int prevY = midY - static_cast<int>(norm0 * maxAmp);
 
     for (size_t i = 1; i < MIC_POINTS; i++) {
         int curX = startX + static_cast<int>(i * stepX);
-        float norm = std::clamp(static_cast<float>(_mic_samples[i]) / 2500.0f, -1.0f, 1.0f);
+        float norm = std::clamp(static_cast<float>(_mic_samples[i]) / _mic_scale, -1.0f, 1.0f);
         int curY = midY - static_cast<int>(norm * maxAmp);
         _canvas.drawLine(prevX, prevY, curX, curY, COLOR_WHITE);
         _canvas.drawLine(prevX, prevY + 1, curX, curY + 1, COLOR_WHITE); // 2px crisp beam
@@ -470,7 +488,13 @@ void R2RRenderer::drawVuMeter()
     }
 
     // 3. Status Badges & Button Interaction Hint
-    std::snprintf(buf, sizeof(buf), "[ DIV: %s ]", getMicDivisorLabel());
+    if (_mic_auto_scale) {
+        char gainBuf[12];
+        formatFixed(gainBuf, sizeof(gainBuf), MIC_FULL_SCALE / _mic_scale, 2);
+        std::snprintf(buf, sizeof(buf), "[ AUTO: %sx ]", gainBuf);
+    } else {
+        std::snprintf(buf, sizeof(buf), "[ DIV: %s ]", getMicDivisorLabel());
+    }
     _canvas.setFont(&fonts::Font2);
     _canvas.setTextSize(1);
     _canvas.setTextColor(COLOR_WHITE, COLOR_BG);

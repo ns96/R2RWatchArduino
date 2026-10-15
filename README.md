@@ -12,7 +12,7 @@ Equipped with 6-axis inertial motion tracking (IMU) and hardware acoustic sampli
 Rendered via an optimized double-buffered 16-bit graphics canvas in ultra-fast internal SRAM, scaled 1.6643x edge-to-edge for round 466x466 AMOLED screens with high-contrast pitch-black `#000000` power saving:
 
 - **Tachometer View**: Instantaneous reel RPM, linear tape speed (IPS and cm/s), rotation direction (CW / CCW), capstan lock status, and active tape speed preset.
-- **VU Meter View**: Real-time acoustic sound monitoring with an oscilloscope audio waveform display, RMS level meter (-20 dB to +3 dB), peak-hold indicator, and selectable microphone attenuation divisor (1.0x to 0.01x).
+- **VU Meter View**: Real-time acoustic sound monitoring with an oscilloscope audio waveform display, RMS level meter (-20 dB to +3 dB), peak-hold indicator, and an automatic vertical scale (oscilloscope-style autoset) that keeps the trace in view across quiet and loud rooms. Manual microphone attenuation divisors (1.0x to 0.01x) remain available and override auto-scaling.
 - **Wow & Flutter View**: Rolling-window RMS speed variation analysis, showing speed instability percentage alongside Min/Max/Avg RPM telemetry and deviation spans.
 - **Tape Counter View**: Integrated reel turn counter, estimated tape length in feet and meters, and simulated tape timecode (`MM:SS`).
 - **Watch Face View**: Digital clock synchronized via UDP NTP, battery percentage gauge, Wi-Fi RSSI signal strength, and 1:1 native / fullscreen scaling toggle.
@@ -109,7 +109,7 @@ R2RWatchArduino/
 
 ### 3. Compilation & Flashing
 1. Open `R2RWatchArduino.ino` in Arduino IDE.
-2. Select your ESP32 / M5 target board under **Tools > Board**.
+2. Select **M5StopWatch** under **Tools > Board** (Arduino CLI FQBN: `m5stack:esp32:m5stack_stopwatch`). Selecting the wrong M5 board compiles and flashes but boot-loops: the panel-borrowing fast path in `r2r_panel.cpp` crashes if the display is not the CO5300 AMOLED framebuffer wrapper.
 3. Set CPU Frequency to **240 MHz**.
 4. Set Upload Speed to **921600** or **115200**.
 5. Connect your device via USB and click **Upload**.
@@ -123,7 +123,7 @@ R2RWatchArduino/
 | **Button A** (or Tap Upper Half of Screen) | Cycle Screen View Mode (`Tachometer` → `VU Meter` → `Wow & Flutter` → `Tape Counter` → `Watch Face`) |
 | **Button B** (or Tap Lower Half of Screen) | Contextual Action depending on active mode: |
 | &nbsp;&nbsp;&nbsp;&nbsp;↳ *In Tachometer Mode* | Cycle Capstan Speed (`3.75 IPS` → `7.50 IPS` → `15.0 IPS`) |
-| &nbsp;&nbsp;&nbsp;&nbsp;↳ *In VU Meter Mode* | Cycle Microphone Attenuation Divisor (`1.0x` → `0.5x` → `0.25x` → `0.10x` → `0.01x`) |
+| &nbsp;&nbsp;&nbsp;&nbsp;↳ *In VU Meter Mode* | Cycle Microphone Attenuation Divisor (`1.0x` → `0.5x` → `0.25x` → `0.10x` → `0.01x`); selecting a manual divisor disables automatic vertical scaling |
 | &nbsp;&nbsp;&nbsp;&nbsp;↳ *In Watch Face Mode* | Toggle Display Scaling Mode (`Fullscreen 1.66x` ↔ `Native 1:1`) |
 | &nbsp;&nbsp;&nbsp;&nbsp;↳ *In Counter / Wow & Flutter* | Cycle Hub Geometry (`7" Cine` → `10.5" NAB` → `3"-5" Small`) |
 
@@ -139,7 +139,7 @@ R2RWatchArduino/
 | `/raw` | `GET` | Plain-text streaming socket for real-time DCT FSK line records |
 | `/api/telemetry` | `GET` | Complete telemetry payload in JSON |
 | `/api/status` | `GET` | Alias for `/api/telemetry` |
-| `/api/action` | `POST` | Execute remote control actions (`mode`, `hub`, `speed`, `mic_div`, `reset_counter`) |
+| `/api/action` | `POST` | Execute remote control actions (`mode`, `hub`, `speed`, `mic_div`, `mic_auto`, `reset_counter`) |
 | `/api/set_time` | `POST` | Synchronize RTC via Unix `epoch` or explicit date/time arguments |
 | `/playing` | `GET/POST` | Synchronize current track title / artist metadata with web clients |
 | `/test` | `GET/POST` | Test and simulation override (`?ips=3.75&rpm=25&mode=play`) |
